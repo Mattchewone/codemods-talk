@@ -1,0 +1,467 @@
+import { themes, Notes, Split, Appear } from 'mdx-deck'
+import { CodeSurfer, CodeSurferColumns, Step } from 'code-surfer'
+import { github, vsDark } from '@code-surfer/themes'
+import Layout from './Layout.js'
+
+import ast from './images/js-ast.jpg'
+import astExplorer from './images/ast-explorer.png'
+import astExplorerInput from './images/ast-top-left.png'
+import astExplorerOutput from './images/ast-bottom-right.png'
+import astExplorerTransform from './images/ast-bottom-left.png'
+import astExplorerTree from './images/ast-top-right.png'
+import astExplorerTreeZoomed from './images/ast-explorer-zoomed.png'
+
+export const theme = themes.code
+
+<Layout>
+
+## Getting Started with Codemods
+
+<Notes>
+Thanks Chasen <br />
+I have been working on codemods for the CanJS 6 migration tools, which allow automatic upgrade of your legacy canjs projects to the latest versions. <br />
+We use JSCodeshift for running these javascript codemods. <br />
+<br />
+Read the bullet points
+</Notes>
+
+<div style="text-align: left;">
+Codemods are awesome because:
+<ul style="margin-top: 40px;">
+
+  <Appear>
+    <li>They simplify repetitive programming tasks.</li>
+    <li>Allow for complex transformations.</li>
+    <li>Make library upgrades easier.</li>
+  </Appear>
+
+</ul>
+</div>
+
+</Layout>
+
+---
+
+<Layout>
+
+## What is JSCodeshift
+
+<Notes>
+JSCodeshift is a tool by facebook for running codemods on JavaScript, JSCodeshift uses recast which is an AST transformation tool.<br />
+</Notes>
+
+JSCodeshift is a tool for running codemods in JavaScript. It will parse your code into an AST to provide complex transformations.
+
+</Layout>
+
+---
+
+<Layout>
+
+## What is an AST
+
+<Notes>
+AST = Abstract Syntax Tree <br />
+This means an abstract representation of your code. <br /> <br />
+Abstract being the structural content of your code, ie your code without formatting, brackets, semi-colons, parenthesis in a tree like structure
+</Notes>
+
+<Split>
+
+<div style="text-align: left;">
+  <Appear>
+    <span>Abstract <br /></span>
+    <span>Syntax <br /></span>
+    <span>Tree <br /></span>
+    <p>An abstract tree representation of the structural components of code.</p>
+  </Appear>
+</div>
+
+<img src={ast} />
+
+</Split>
+
+</Layout>
+
+---
+
+<Layout>
+
+## ASTExplorer
+
+<Notes>
+ASTExplorer is an online tool for exploring JS ASTs <br /><br />
+I used this to write most of the CanJS6 codemods <br /> 
+I would paste in the code that I would like transform and then using the tree view, I would navigate the tree to see what I needed to target for the transformation. <br />
+
+Then I would create the transform in the browser where I would be able to see the expected output <br />
+
+In the following slides I will walk through the different sections of astexplorer
+</Notes>
+
+<img style="height: 85vh;" src={astExplorer} />
+
+</Layout>
+
+---
+
+<Notes>
+In the top left you have the input code you wish to inspect or transform
+</Notes>
+
+<img style="height: 95vh;" src={astExplorerInput} />
+
+---
+
+<Notes>
+In the top right, you have the tree view of the AST
+</Notes>
+
+<img style="height: 95vh;" src={astExplorerTree} />
+
+---
+
+<Notes>
+In the bottom left, this is where you would write your transforms / codemods
+</Notes>
+
+<img style="height: 95vh;" src={astExplorerTransform} />
+
+---
+
+<Notes>
+The bottom right is the output from the transformation which runs live
+</Notes>
+
+<img style="height: 95vh;" src={astExplorerOutput} />
+
+---
+
+<Notes>
+Here, I have zoomed in on the tree view, here I would be hovering on the `ExpressionStatement` with my mouse pointer, this then highlights the code within the code panel
+</Notes>
+
+<img style="height: 95vh;" src={astExplorerTreeZoomed} />
+
+---
+
+<Layout>
+
+## Example
+
+<Notes>
+I am going to show what a transform looks like for CanJS6 <br />
+I will be transforming a CanJS5 component into a CanJS6 class component
+</Notes>
+
+</Layout>
+
+---
+
+<Notes>
+In CanJS 5, you had a Component object, which you call .extend on to create a component <br />
+You would give it a tag name and a view property for the template. <br /><br />
+
+In CanJS 6 you extend the StacheElement base class <br />
+Create a static getter called view and have it return the template.
+</Notes>
+
+<CodeSurferColumns themes={[vsDark, github]}>
+
+<CodeSurfer>
+
+```js
+Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+```
+
+```js
+class MyApp extends StacheElement {
+  static get view () {
+    return '<h1>Hello World!</h1>'
+  }
+}
+customElements.define('my-app', MyApp)
+```
+
+</CodeSurfer>
+
+</CodeSurferColumns>
+
+---
+
+<Notes>
+This is a snippet of the transform that runs for the codemod to convert a CanJS5 component into a CanJS6 class component <br />
+It's a bit small, so I am now going to break it up so that we can see what it is doing
+</Notes>
+
+<CodeSurfer>
+
+```js
+...
+
+return j(file.source)
+  .find(j.CallExpression, { // Component.extend
+    callee: {
+      type: 'MemberExpression',
+      object: {
+        name: 'Component'
+      },
+      property: {
+        name: 'extend'
+      }
+    }
+  })
+  .forEach(path => {
+    ...
+
+    // Replace the current path with a class
+    j(path).replaceWith(
+      j.classDeclaration(
+        j.identifier(className),
+        j.classBody([
+          j.methodDefinition(
+            'get', // Getter
+            j.identifier('view'), // Name of class property
+            j.functionExpression(
+              null,
+              [],
+              j.blockStatement([j.returnStatement(viewProp.value)])
+            ),
+            true // Static
+          )
+        ]),
+        j.identifier('StacheElement') // Class extend
+      )
+    );
+
+    ...
+  })
+  .toSource();
+```
+
+</CodeSurfer>
+
+---
+
+<Notes>
+Slide 1: <br />
+jscodeshift exposes a set of APIs to allow you to navigate the tree to find / transform it <br />
+The find here is looking for a CallExpression, with a memberExpression which is Component.extend <br />
+
+Slide 2: <br />
+We are looping through the objects properties and pulling out the tag and view properties as we will need these for later <br />
+
+Slide 3: <br />
+This section determines how the component is being assigned so we can replace it correctly <br />
+
+Slide 4 <br />
+we pascalize the var name or the tag name depending how it's used <br />
+
+Slide 5: <br />
+Replace the entire component (path) with a class declaration <br />
+Create a class declaration <br />
+The identifier is the name of the class ie (MyApp) <br />
+classBody will contain the class body.., we are defining a method definition which is a static getter with the name `view` <br />
+The final identifier is the extended class name, which in our case is StacheElement
+</Notes>
+
+
+<CodeSurferColumns themes={[vsDark, github]}>
+
+<Step>
+
+```js
+Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+```
+
+```js
+return j(file.source)
+.find(j.CallExpression, { // Component.extend
+  callee: {
+    type: 'MemberExpression',
+    object: {
+      name: 'Component'
+    },
+    property: {
+      name: 'extend'
+    }
+  }
+})
+```
+
+</Step>
+
+<Step>
+
+```js 2:3
+Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+```
+
+```js 1:8
+path.value.arguments[0].properties
+.forEach(prop => {
+  if (prop.key.name === 'view') {
+    viewProp = prop;
+  } else if (prop.key.name === 'tag') {
+    tagName = prop.value.value;
+  }
+});
+```
+
+</Step>
+
+<Step>
+
+```js 1:16
+Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+
+// Or
+const MyApp = Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+
+// Or
+export default Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+```
+
+```js
+// Replace variable declarations with class def
+if (
+  path.parentPath &&
+  path.parentPath.value &&
+  path.parentPath.value.type === 'VariableDeclarator'
+) {
+  // Use the name of the variable as the component name
+  varDeclarationName = path.parentPath.value.id.name;
+  path = path.parentPath.parentPath.parentPath;
+  varDeclarationPath = j(path);
+// `AssignmentExpression` used to check if the `Component` 
+// is being exported as created ie:
+// module.exports = Component.extend({ ... })
+} else if (
+  path.parentPath &&
+  path.parentPath.value &&
+  path.parentPath.value.type === 'AssignmentExpression'
+) {
+  varDeclarationPath = j(path).closest(j.ExpressionStatement);
+} else {
+  varDeclarationPath = j(path.parentPath);
+}
+```
+
+</Step>
+
+<Step>
+
+```js 2,7[1:11],14
+Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+
+// Or
+const MyApp = Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+
+// Or
+export default Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+```
+
+```js
+// We would PascalCase the tagName
+let className = string.pascalize(varDeclarationName || tagName);
+```
+
+</Step>
+
+<Step>
+
+```js
+Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+```
+
+```js
+// Replace the current path with a class
+j(path).replaceWith(
+  j.classDeclaration(
+    j.identifier(className),
+    j.classBody([
+      j.methodDefinition(
+        'get', // Getter
+        j.identifier('view'), // Name of class property
+        j.functionExpression(
+          null,
+          [],
+          j.blockStatement([j.returnStatement(viewProp.value)])
+        ),
+        true // Static
+      )
+    ]),
+    j.identifier('StacheElement') // Class extend
+  )
+);
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<CodeSurferColumns themes={[vsDark, github]}>
+
+<CodeSurfer>
+
+```js
+Component.extend({
+  tag: 'my-app',
+  view: '<h1>Hello World!</h1>'
+})
+```
+
+```js
+class MyApp extends StacheElement {
+  static get view () {
+    return '<h1>Hello World!</h1>'
+  }
+}
+customElements.define('my-app', MyApp)
+```
+
+</CodeSurfer>
+
+</CodeSurferColumns>
+
+---
+
+# That's all folks
+
+Links: <br />
+[jscodeshift](https://github.com/facebook/jscodeshift) <br />
+[astexplorer](https://astexplorer.net/) <br />
+[can-migrate](https://github.com/canjs/can-migrate) <br />
+[canjs migration docs](https://canjs.com/doc/guides/upgrade/using-codemods.html)

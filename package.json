@@ -1,0 +1,17 @@
+{
+  "name": "codemods",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "mdx-deck deck.mdx"
+  },
+  "keywords": [],
+  "author": "Matt Chaffe <matt@mattchaffe.uk>",
+  "license": "ISC",
+  "dependencies": {
+    "code-surfer": "^3.0.0-beta.1",
+    "mdx-deck": "^3.0.13",
+    "react": "^16.10.2"
+  }
+}
